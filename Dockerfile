@@ -11,8 +11,9 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# Copy dependency files
+# Copy dependency files and source for metadata
 COPY pyproject.toml uv.lock README.md LICENSE ./
+COPY fast_flights ./fast_flights
 
 # Install dependencies
 RUN uv sync --frozen --extra local

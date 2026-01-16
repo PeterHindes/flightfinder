@@ -6,9 +6,7 @@ import random
 import time
 import re
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 from datetime import datetime, timedelta
 from dateutil import parser as date_parser
 from fast_flights import FlightData, Passengers, create_filter, get_flights_from_filter
@@ -396,30 +394,34 @@ def send_email(report_md, recipients=None):
     if recipients is None:
         recipients = ["ph9214@gmail.com"]
         
-    smtp_host = os.environ.get("SMTP_HOST", "smtp")
-    smtp_port = int(os.environ.get("SMTP_PORT", 25))
-    sender_email = os.environ.get("SENDER_EMAIL", "flights@flightfinder.local")
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        print("Error: RESEND_API_KEY environment variable not set. Skipping email.")
+        return
 
     # Simple MD to HTML conversion for the email
     html_content = report_md.replace("# ", "<h1>").replace("## ", "<h2>").replace("### ", "<h3>")
     html_content = html_content.replace("\n", "<br>")
     html_content = f"<html><body>{html_content}</body></html>"
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"Flight Comparison Report - {datetime.now().strftime('%Y-%m-%d')}"
-    msg["From"] = sender_email
-    msg["To"] = ", ".join(recipients)
-
-    # Attach both plain text and HTML versions
-    part1 = MIMEText(report_md, "plain")
-    part2 = MIMEText(html_content, "html")
-    msg.attach(part1)
-    msg.attach(part2)
+    url = "https://api.resend.com/emails"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "from": "FlightFinder <onboarding@resend.dev>",
+        "to": recipients,
+        "subject": f"Flight Comparison Report - {datetime.now().strftime('%Y-%m-%d')}",
+        "html": html_content
+    }
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.sendmail(sender_email, recipients, msg.as_string())
-        print(f"Email sent successfully to {', '.join(recipients)} via {smtp_host}")
+        response = requests.post(url, headers=headers, json=data)
+        if response.status_code == 200 or response.status_code == 201:
+            print(f"Email sent successfully to {', '.join(recipients)}")
+        else:
+            print(f"Failed to send email: {response.status_code} - {response.text}")
     except Exception as e:
         print(f"Error sending email: {e}")
 

@@ -392,7 +392,7 @@ def main():
 
 def send_email(report_md, recipients=None):
     if recipients is None:
-        recipients = ["flightstrat@abad.cc"]
+        recipients = ["ph9214@gmail.com"]
         
     api_key = os.environ.get("RESEND_API_KEY")
     if not api_key:

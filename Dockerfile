@@ -1,8 +1,7 @@
-FROM python:3.11-slim
+FROM mcr.microsoft.com/playwright/python:v1.49.0-noble
 
-# Install system dependencies and cron
+# Install cron
 RUN apt-get update && apt-get install -y \
-    curl \
     cron \
     && rm -rf /var/lib/apt/lists/*
 
@@ -19,7 +18,7 @@ COPY fast_flights ./fast_flights
 RUN uv sync --frozen --extra local
 
 # Install Playwright browsers
-RUN uv run playwright install --with-deps chromium
+RUN uv run playwright install chromium
 
 # Copy the rest of the application
 COPY . .

@@ -368,12 +368,7 @@ def generate_markdown_report(trips, one_way_results, nested_results, total_onewa
         f.write(report)
     print("\nMarkdown report generated: report.md")
 
-def main():
-    parser = argparse.ArgumentParser(description="Compare Multi-City vs Nested Round Trips from CSV with Date Ranges")
-    parser.add_argument("--csv", type=str, default="trips.csv", help="Path to the CSV file")
-    parser.add_argument("--retries", type=int, default=5, help="Number of retries per search")
-    args = parser.parse_args()
-
+def read_trips_csv(csv_path):
     trips = []
     try:
         with open(csv_path, mode='r', encoding='utf-8') as f:

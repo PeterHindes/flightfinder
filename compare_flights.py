@@ -364,9 +364,7 @@ def generate_markdown_report(trips, one_way_results, nested_results, total_onewa
             report += "- *No flights found*\n"
         report += "\n"
 
-    with open("report.md", "w", encoding="utf-8") as f:
-        f.write(report)
-    print("\nMarkdown report generated: report.md")
+    return report
 
 def read_trips_csv(csv_path):
     trips = []
@@ -526,7 +524,7 @@ def run_comparison(trips, retries):
         print("Comparison incomplete due to missing data.")
 
     report_md = generate_markdown_report(trips, one_way_results, nested_results, total_oneways, total_nested)
-    with open("report.md", "w") as f:
+    with open("report.md", "w", encoding="utf-8") as f:
         f.write(report_md)
     print("\nMarkdown report generated: report.md")
     return report_md

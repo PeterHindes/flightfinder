@@ -428,7 +428,13 @@ def main():
     parser.add_argument("--csv", default="trips.csv", help="Path to trips CSV file")
     parser.add_argument("--retries", type=int, default=5, help="Number of retries for fetching")
     parser.add_argument("--email", action="store_true", help="Send report via email")
+    parser.add_argument("--sanity", action="store_true", help="Send a sanity check email and exit")
     args = parser.parse_args()
+
+    if args.sanity:
+        print("Sending sanity check email...")
+        send_email("This is a sanity check email from FlightFinder. If you receive this, the email system is working correctly!")
+        return
 
     trips = read_trips_csv(args.csv)
     if len(trips) < 2:

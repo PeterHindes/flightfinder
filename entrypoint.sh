@@ -3,9 +3,9 @@
 # Export environment variables to a file so cron can access them
 printenv | grep -v "no_proxy" > /etc/environment
 
-# Run a sanity check email on startup
-echo "Running startup sanity check..."
-/app/.venv/bin/python /app/compare_flights.py --sanity
+# Run a startup sequence (sanity email + immediate report)
+echo "Running startup sequence..."
+/app/.venv/bin/python /app/compare_flights.py --startup --csv /app/trips.csv
 
 # Start cron in the foreground
 cron -f

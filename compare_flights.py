@@ -390,14 +390,14 @@ def main():
         return []
     return trips
 
-def send_email(report_md, recipients=None):
+def send_email(report_md, recipients=None, parent_id=None):
     if recipients is None:
         recipients = ["ph9214@gmail.com"]
         
     api_key = os.environ.get("RESEND_API_KEY")
     if not api_key:
         print("Error: RESEND_API_KEY environment variable not set. Skipping email.")
-        return
+        return None
 
     # Simple MD to HTML conversion for the email
     html_content = report_md.replace("# ", "<h1>").replace("## ", "<h2>").replace("### ", "<h3>")
@@ -416,35 +416,44 @@ def send_email(report_md, recipients=None):
         "html": html_content
     }
 
+    if parent_id:
+        data["headers"] = {
+            "In-Reply-To": f"<{parent_id}>",
+            "References": f"<{parent_id}>"
+        }
+
     try:
         response = requests.post(url, headers=headers, json=data)
         if response.status_code == 200 or response.status_code == 201:
-            print(f"Email sent successfully to {', '.join(recipients)}")
+            msg_id = response.json().get("id")
+            print(f"Email sent successfully to {', '.join(recipients)} (ID: {msg_id})")
+            return msg_id
         else:
             print(f"Failed to send email: {response.status_code} - {response.text}")
+            return None
     except Exception as e:
         print(f"Error sending email: {e}")
+        return None
 
-def main():
-    parser = argparse.ArgumentParser(description="Compare flight strategies.")
-    parser.add_argument("--csv", default="trips.csv", help="Path to trips CSV file")
-    parser.add_argument("--retries", type=int, default=5, help="Number of retries for fetching")
-    parser.add_argument("--email", action="store_true", help="Send report via email")
-    parser.add_argument("--sanity", action="store_true", help="Send a sanity check email and exit")
-    args = parser.parse_args()
+def get_parent_id():
+    path = "/app/parent_id.txt"
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return f.read().strip()
+    return None
 
-    if args.sanity:
-        print("Sending sanity check email...")
-        send_email("This is a sanity check email from FlightFinder. If you receive this, the email system is working correctly!")
-        return
+def save_parent_id(msg_id):
+    path = "/app/parent_id.txt"
+    with open(path, "w") as f:
+        f.write(msg_id)
 
-    trips = read_trips_csv(args.csv)
+def run_comparison(trips, retries):
     if len(trips) < 2:
         print("Error: CSV must contain at least an origin and a destination.")
-        return
+        return None
 
     print(f"=== Comparing Multi-City One-Ways vs Nested Round Trips for {len(trips)} cities ===")
-    print(f"Retries: {args.retries}\n")
+    print(f"Retries: {retries}\n")
 
     # Strategy 1: Multi-City One-Ways
     print("--- Strategy 1: Multi-City One-Ways ---")
@@ -457,7 +466,7 @@ def main():
         destination = trips[i+1]["city"]
         date_range = trips[i]["date_range"]
         
-        res = get_best_price(origin, destination, date_range, max_retries=args.retries)
+        res = get_best_price(origin, destination, date_range, max_retries=retries)
         one_way_results.append(res)
         if res:
             total_oneways += res["price"]
@@ -485,14 +494,14 @@ def main():
             
     if not final_return_range:
         print("Error: No valid return date range found in CSV.")
-        return
+        return None
 
     for i in range(len(trips) - 1):
         origin = trips[i]["city"]
         destination = trips[i+1]["city"]
         depart_range = trips[i]["date_range"]
         
-        res = get_round_trip_price(origin, destination, depart_range, final_return_range, max_retries=args.retries)
+        res = get_round_trip_price(origin, destination, depart_range, final_return_range, max_retries=retries)
         nested_results.append(res)
         if res:
             total_nested += res["price"]
@@ -525,9 +534,54 @@ def main():
     with open("report.md", "w") as f:
         f.write(report_md)
     print("\nMarkdown report generated: report.md")
+    return report_md
 
-    if args.email:
-        send_email(report_md)
+def main():
+    parser = argparse.ArgumentParser(description="Compare flight strategies.")
+    parser.add_argument("--csv", default="trips.csv", help="Path to trips CSV file")
+    parser.add_argument("--retries", type=int, default=5, help="Number of retries for fetching")
+    parser.add_argument("--email", action="store_true", help="Send report via email")
+    parser.add_argument("--sanity", action="store_true", help="Send a sanity check email and exit")
+    parser.add_argument("--startup", action="store_true", help="Send sanity email, save ID, and run full search")
+    args = parser.parse_args()
+
+    if args.sanity:
+        print("Sending sanity check email...")
+        send_email("This is a sanity check email from FlightFinder. If you receive this, the email system is working correctly!")
+        return
+
+    if args.startup:
+        print("Running startup sequence...")
+        # 1. Send sanity email and save its ID as the parent
+        parent_id = send_email("This is the main thread for your FlightFinder reports. All future reports will be sent as replies to this email.")
+        if parent_id:
+            save_parent_id(parent_id)
+            print(f"Saved parent ID: {parent_id}")
+        
+        # 2. Run full search immediately
+        print("Running initial flight search...")
+        trips = read_trips_csv(args.csv)
+        report_md = run_comparison(trips, args.retries)
+        
+        # 3. Send report as a reply
+        if report_md:
+            send_email(report_md, parent_id=parent_id)
+        return
+
+    trips = read_trips_csv(args.csv)
+    report_md = run_comparison(trips, args.retries)
+    
+    if args.email and report_md:
+        parent_id = get_parent_id()
+        if not parent_id:
+            print("No parent ID found. Sending as a new thread and saving ID.")
+            parent_id = send_email("Initializing FlightFinder report thread.")
+            if parent_id:
+                save_parent_id(parent_id)
+        
+        send_email(report_md, parent_id=parent_id)
+    elif not args.email and report_md:
+        print(report_md)
 
 if __name__ == "__main__":
     main()

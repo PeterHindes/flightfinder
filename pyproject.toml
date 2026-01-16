@@ -23,6 +23,7 @@ dependencies = [
   "protobuf>=5.27.0",
   "selectolax",
   "python-dateutil",
+  "requests",
 ]
 
 [project.optional-dependencies]

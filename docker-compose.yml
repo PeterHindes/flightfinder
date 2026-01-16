@@ -3,6 +3,14 @@ services:
     build: .
     restart: always
     environment:
-      - RESEND_API_KEY=${RESEND_API_KEY}
+      - SMTP_HOST=smtp
+      - SMTP_PORT=25
+      - SENDER_EMAIL=flights@flightfinder.local
     volumes:
       - ./trips.csv:/app/trips.csv
+    depends_on:
+      - smtp
+
+  smtp:
+    image: namshi/smtp
+    restart: always

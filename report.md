@@ -1,10 +1,7 @@
 # Flight Comparison Report
 
 ## Summary
-- **Multi-City One-Ways**: $1538.95
-- **Nested Round Trips**: $2156.19
-
-**Verdict**: One-Ways are cheaper by $617.24
+Comparison incomplete due to missing data.
 
 ## Strategy 1: Multi-City One-Ways
 ### DEN -> BKK
@@ -33,15 +30,10 @@
 
 ## Strategy 2: Nested Round Trips
 ### DEN <-> BKK
-- **Price**: $1746.0
-- **Dates**: 2026-05-04 to 2026-06-22
-- **Duration**: 37 hr 50 min
-- **Flight Numbers**: WN 3818, DE 2081, DE 2366
-- **Layovers**: 5 hr 25 min layover at Los Angeles International Airport in Los Angeles; 7 hr 15 min layover at Frankfurt Airport in Frankfurt am Main
-- [View on Google Flights](https://www.google.com/travel/flights?tfs=GhoSCjIwMjYtMDUtMDRqBRIDREVOcgUSA0JLSxoaEgoyMDI2LTA2LTIyagUSA0JLS3IFEgNERU5CAQFIAZgBAQ==)
+- *No flights found*
 
 ### BKK <-> SYD
-- **Price**: $410.19
+- **Price**: $410.4
 - **Dates**: 2026-05-25 to 2026-06-21
 - **Duration**: 12h 35m
 - **Flight Numbers**: Vietjet 800, Vietjet 85

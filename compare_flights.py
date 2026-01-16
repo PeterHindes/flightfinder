@@ -1,9 +1,14 @@
 import json
 import time
-import random
-import csv
 import argparse
+import csv
+import random
+import time
 import re
+import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from dateutil import parser as date_parser
 from fast_flights import FlightData, Passengers, create_filter, get_flights_from_filter
@@ -374,120 +379,145 @@ def main():
     trips = []
     try:
         with open(args.csv, mode='r', encoding='utf-8') as f:
+        with open(csv_path, mode='r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 earliest = normalize_date(row.get("earliest_leave"))
                 latest = normalize_date(row.get("latest_leave")) or earliest
                 trips.append({
                     "city": row["city"].strip().upper(),
-                    "leave_range": get_date_range(earliest, latest)
+                    "date_range": get_date_range(earliest, latest)
                 })
     except Exception as e:
         print(f"Error reading CSV: {e}")
-        return
+        return []
+    return trips
 
+def send_email(report_md, recipient="ph9214@gmail.com"):
+    smtp_host = os.environ.get("SMTP_HOST", "smtp")
+    smtp_port = int(os.environ.get("SMTP_PORT", 25))
+    sender_email = os.environ.get("SENDER_EMAIL", "flights@flightfinder.local")
+
+    # Simple MD to HTML conversion for the email
+    html_content = report_md.replace("# ", "<h1>").replace("## ", "<h2>").replace("### ", "<h3>")
+    html_content = html_content.replace("\n", "<br>")
+    html_content = f"<html><body>{html_content}</body></html>"
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"Flight Comparison Report - {datetime.now().strftime('%Y-%m-%d')}"
+    msg["From"] = sender_email
+    msg["To"] = recipient
+
+    # Attach both plain text and HTML versions
+    part1 = MIMEText(report_md, "plain")
+    part2 = MIMEText(html_content, "html")
+    msg.attach(part1)
+    msg.attach(part2)
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.sendmail(sender_email, [recipient], msg.as_string())
+        print(f"Email sent successfully to {recipient} via {smtp_host}")
+    except Exception as e:
+        print(f"Error sending email: {e}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Compare flight strategies.")
+    parser.add_argument("--csv", default="trips.csv", help="Path to trips CSV file")
+    parser.add_argument("--retries", type=int, default=5, help="Number of retries for fetching")
+    parser.add_argument("--email", action="store_true", help="Send report via email")
+    args = parser.parse_args()
+
+    trips = read_trips_csv(args.csv)
     if len(trips) < 2:
-        print("At least two cities are required for a comparison.")
+        print("Error: CSV must contain at least an origin and a destination.")
         return
 
     print(f"=== Comparing Multi-City One-Ways vs Nested Round Trips for {len(trips)} cities ===")
-    print(f"Retries: {args.retries}")
-    
+    print(f"Retries: {args.retries}\n")
+
     # Strategy 1: Multi-City One-Ways
-    print("\n--- Strategy 1: Multi-City One-Ways ---")
+    print("--- Strategy 1: Multi-City One-Ways ---")
     one_way_results = []
+    total_oneways = 0
+    all_oneways_found = True
+
     for i in range(len(trips) - 1):
         origin = trips[i]["city"]
         destination = trips[i+1]["city"]
-        date_range = trips[i]["leave_range"]
+        date_range = trips[i]["date_range"]
+        
         res = get_best_price(origin, destination, date_range, max_retries=args.retries)
         one_way_results.append(res)
-
-    # Summary Strategy 1
-    print(f"\nSummary Strategy 1:")
-    total_oneways = 0
-    missing_oneway = False
-    for i in range(len(trips) - 1):
-        res = one_way_results[i]
-        p = res["price"] if res else None
-        print(f"  {trips[i]['city']}->{trips[i+1]['city']}: ${p}")
-        if p is None:
-            missing_oneway = True
+        if res:
+            total_oneways += res["price"]
         else:
-            total_oneways += p
-    
-    if not missing_oneway:
-        print(f"  Total One-Ways: ${total_oneways}")
+            all_oneways_found = False
+
+    if all_oneways_found:
+        print(f"\nSummary Strategy 1: Total One-Ways: ${total_oneways:.2f}")
     else:
+        print("\nSummary Strategy 1: N/A (Some legs failed)")
         total_oneways = None
-        print("  Total One-Ways: N/A (Missing data for one or more legs)")
 
     # Strategy 2: Nested Round Trips
     print("\n--- Strategy 2: Nested Round Trips ---")
     nested_results = []
+    total_nested = 0
+    all_nested_found = True
     
-    # Find the last non-empty leave range to use as the final return date
-    final_return_range = []
+    # The final return date is determined by the last valid departure range in the CSV
+    final_return_range = None
     for t in reversed(trips):
-        if t["leave_range"]:
-            final_return_range = t["leave_range"]
+        if t["date_range"]:
+            final_return_range = t["date_range"]
             break
             
     if not final_return_range:
-        print("  Error: No valid return date range found in CSV.")
-        missing_nested = True
-    else:
-        for i in range(len(trips) - 1):
-            origin = trips[i]["city"]
-            destination = trips[i+1]["city"]
-            depart_range = trips[i]["leave_range"]
-            
-            # Find if there are more departure legs after this one
-            has_more_departures = False
-            for j in range(i + 1, len(trips)):
-                if trips[j]["leave_range"]:
-                    has_more_departures = True
-                    break
-            
-            if has_more_departures:
-                res = get_round_trip_price(origin, destination, depart_range, final_return_range, max_retries=args.retries)
-                nested_results.append(res)
-            else:
-                break
+        print("Error: No valid return date range found in CSV.")
+        return
 
-    print(f"\nSummary Strategy 2:")
-    total_nested = 0
-    missing_nested = False
-    for i in range(len(nested_results)):
-        res = nested_results[i]
-        p = res["price"] if res else None
-        print(f"  {trips[i]['city']}<->{trips[i+1]['city']}: ${p}")
-        if p is None:
-            missing_nested = True
+    for i in range(len(trips) - 1):
+        origin = trips[i]["city"]
+        destination = trips[i+1]["city"]
+        depart_range = trips[i]["date_range"]
+        
+        res = get_round_trip_price(origin, destination, depart_range, final_return_range, max_retries=args.retries)
+        nested_results.append(res)
+        if res:
+            total_nested += res["price"]
         else:
-            total_nested += p
-    
-    if not missing_nested:
-        print(f"  Total Nested: ${total_nested}")
+            all_nested_found = False
+
+    if all_nested_found:
+        print(f"\nSummary Strategy 2:")
+        for i, res in enumerate(nested_results):
+            print(f"  {trips[i]['city']}<->{trips[i+1]['city']}: ${res['price']}")
+        print(f"  Total Nested: ${total_nested:.2f}")
     else:
+        print("\nSummary Strategy 2: N/A (Some legs failed)")
         total_nested = None
-        print("  Total Nested: N/A (Missing data for one or more legs)")
 
     print("\n=== Final Comparison ===")
     if total_oneways is not None and total_nested is not None:
-        print(f"Multi-City One-Ways: ${total_oneways}")
-        print(f"Nested Round Trips:  ${total_nested}")
-        
+        print(f"Multi-City One-Ways: ${total_oneways:.2f}")
+        print(f"Nested Round Trips:  ${total_nested:.2f}")
         if total_oneways < total_nested:
-            print(f"\nOne-Ways are cheaper by ${total_nested - total_oneways}")
+            print(f"\nOne-Ways are cheaper by ${total_nested - total_oneways:.2f}")
         elif total_nested < total_oneways:
-            print(f"\nNested Round Trips are cheaper by ${total_oneways - total_nested}")
+            print(f"\nNested Round Trips are cheaper by ${total_oneways - total_nested:.2f}")
         else:
             print("\nBoth strategies have the same total cost.")
     else:
         print("Comparison incomplete due to missing data.")
 
-    generate_markdown_report(trips, one_way_results, nested_results, total_oneways, total_nested)
+    report_md = generate_markdown_report(trips, one_way_results, nested_results, total_oneways, total_nested)
+    with open("report.md", "w") as f:
+        f.write(report_md)
+    print("\nMarkdown report generated: report.md")
+
+    if args.email:
+        send_email(report_md)
 
 if __name__ == "__main__":
     main()

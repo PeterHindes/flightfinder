@@ -22,6 +22,7 @@ dependencies = [
   "primp",
   "protobuf>=5.27.0",
   "selectolax",
+  "python-dateutil",
 ]
 
 [project.optional-dependencies]

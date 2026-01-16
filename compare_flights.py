@@ -392,7 +392,10 @@ def main():
         return []
     return trips
 
-def send_email(report_md, recipient="ph9214@gmail.com"):
+def send_email(report_md, recipients=None):
+    if recipients is None:
+        recipients = ["ph9214@gmail.com", "flightstrat@abad.cc"]
+        
     smtp_host = os.environ.get("SMTP_HOST", "smtp")
     smtp_port = int(os.environ.get("SMTP_PORT", 25))
     sender_email = os.environ.get("SENDER_EMAIL", "flights@flightfinder.local")
@@ -405,7 +408,7 @@ def send_email(report_md, recipient="ph9214@gmail.com"):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"Flight Comparison Report - {datetime.now().strftime('%Y-%m-%d')}"
     msg["From"] = sender_email
-    msg["To"] = recipient
+    msg["To"] = ", ".join(recipients)
 
     # Attach both plain text and HTML versions
     part1 = MIMEText(report_md, "plain")
@@ -415,8 +418,8 @@ def send_email(report_md, recipient="ph9214@gmail.com"):
 
     try:
         with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.sendmail(sender_email, [recipient], msg.as_string())
-        print(f"Email sent successfully to {recipient} via {smtp_host}")
+            server.sendmail(sender_email, recipients, msg.as_string())
+        print(f"Email sent successfully to {', '.join(recipients)} via {smtp_host}")
     except Exception as e:
         print(f"Error sending email: {e}")
 

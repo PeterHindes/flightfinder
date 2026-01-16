@@ -1,13 +1,13 @@
 services:
   flightfinder:
     build: .
+    restart: always
     environment:
       - SMTP_HOST=smtp
       - SMTP_PORT=25
       - SENDER_EMAIL=flights@flightfinder.local
     volumes:
       - ./trips.csv:/app/trips.csv
-      - ./report.md:/app/report.md
     depends_on:
       - smtp
 

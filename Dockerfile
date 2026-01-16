@@ -1,8 +1,9 @@
 FROM python:3.11-slim
 
-# Install system dependencies
+# Install system dependencies and cron
 RUN apt-get update && apt-get install -y \
     curl \
+    cron \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
@@ -24,5 +25,12 @@ RUN uv run playwright install --with-deps chromium
 # Copy the rest of the application
 COPY . .
 
-# Default command
-CMD ["uv", "run", "python", "compare_flights.py", "--csv", "trips.csv", "--email"]
+# Set up cron job (runs at noon every day)
+# We use 'BASH_ENV=/etc/environment' to ensure cron has access to Docker env vars
+RUN echo "0 12 * * * . /etc/environment; /app/.venv/bin/python /app/compare_flights.py --csv /app/trips.csv --email >> /var/log/cron.log 2>&1" > /etc/cron.d/flight-cron
+RUN chmod 0644 /etc/cron.d/flight-cron
+RUN crontab /etc/cron.d/flight-cron
+RUN touch /var/log/cron.log
+
+# Use entrypoint script to start cron
+ENTRYPOINT ["/app/entrypoint.sh"]

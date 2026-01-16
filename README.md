@@ -57,16 +57,34 @@ flight.delay?  # may not be present
 flight.price
 ```
 
-**Useless enums**: Additionally, you can use the `Airport` enum to search for airports in code (as you type)! See `_generated_enum.py` in source.
+## 🚀 Flight Strategy Finder
+This repository includes a powerful comparison tool (`compare_flights.py`) that helps you find the cheapest way to travel between multiple cities by comparing two distinct strategies:
 
-```python
-Airport.TAIPEI
-              ╭─────────────────────────────────╮
-              │ TAIPEI_SONGSHAN_AIRPORT         │
-              │ TAPACHULA_INTERNATIONAL_AIRPORT │
-              │ TAMPA_INTERNATIONAL_AIRPORT     │
-              ╰─────────────────────────────────╯
-```
+1.  **Multi-City One-Ways**: Searches for the cheapest one-way flight for each individual leg of your trip.
+2.  **Nested Round Trips**: Searches for nested round-trip flights (e.g., `A <-> B` and `B <-> C`, both returning on your final travel date).
+
+### Features
+- **Date Range Support**: Specify `earliest_leave` and `latest_leave` for each leg; the tool iterates through every date to find the absolute best price.
+- **Robust Scraping**: Uses a dual-source approach (JS data + HTML fallback) with automatic retries and local Playwright support.
+- **Detailed Reporting**: Generates a comprehensive `report.md` with flight numbers, layover times, durations, and Google Flights links.
+
+### Usage
+1.  **Define your trip** in `trips.csv`:
+    ```csv
+    city,earliest_leave,latest_leave
+    DEN,2026-05-01,2026-05-04
+    BKK,2026-05-25,
+    SYD,2026-06-21,2026-06-24
+    DEN,,
+    ```
+    *Note: The last row represents your final destination and return window.*
+
+2.  **Run the finder**:
+    ```bash
+    uv run python compare_flights.py --csv trips.csv --retries 5
+    ```
+
+3.  **View the results**: Check `report.md` for a full breakdown and the final verdict on which strategy is cheaper.
 
 ## What's new
 - `v2.0` – New (much more succinct) API, fallback support for Playwright serverless functions, and [documentation](https://aweirddev.github.io/flights)!

@@ -11,6 +11,11 @@ async def fetch_with_playwright(url: str) -> str:
             await page.click('text="Accept all"')
         
         await page.wait_for_selector('[role="main"]', timeout=30000)
+        
+        # Wait for prices to stabilize (Google Flights often updates after initial load)
+        print("  Waiting 15s for prices to stabilize...")
+        await asyncio.sleep(15)
+        
         body = await page.evaluate(
             "() => document.querySelector('[role=\"main\"]').innerHTML"
         )

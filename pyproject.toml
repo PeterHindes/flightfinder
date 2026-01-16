@@ -24,6 +24,7 @@ dependencies = [
   "selectolax",
   "python-dateutil",
   "requests",
+  "markdown",
 ]
 
 [project.optional-dependencies]

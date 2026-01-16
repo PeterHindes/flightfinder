@@ -7,6 +7,7 @@ import time
 import re
 import os
 import requests
+import markdown
 from datetime import datetime, timedelta
 from dateutil import parser as date_parser
 from fast_flights import FlightData, Passengers, create_filter, get_flights_from_filter
@@ -392,10 +393,32 @@ def send_email(report_md, recipients=None, parent_id=None):
         print("Error: RESEND_API_KEY environment variable not set. Skipping email.")
         return None
 
-    # Simple MD to HTML conversion for the email
-    html_content = report_md.replace("# ", "<h1>").replace("## ", "<h2>").replace("### ", "<h3>")
-    html_content = html_content.replace("\n", "<br>")
-    html_content = f"<html><body>{html_content}</body></html>"
+    # Convert Markdown to HTML using the markdown library
+    body_html = markdown.markdown(report_md, extensions=['tables', 'fenced_code'])
+    
+    # Add some basic styling for a "premium" feel
+    html_content = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }}
+            h1 {{ color: #1a73e8; border-bottom: 2px solid #1a73e8; padding-bottom: 10px; }}
+            h2 {{ color: #1a73e8; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
+            h3 {{ color: #555; }}
+            table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
+            th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
+            th {{ background-color: #f8f9fa; color: #1a73e8; }}
+            tr:nth-child(even) {{ background-color: #f2f2f2; }}
+            a {{ color: #1a73e8; text-decoration: none; font-weight: bold; }}
+            a:hover {{ text-decoration: underline; }}
+            .verdict {{ background-color: #e8f0fe; padding: 15px; border-radius: 8px; border-left: 5px solid #1a73e8; font-weight: bold; }}
+        </style>
+    </head>
+    <body>
+        {body_html}
+    </body>
+    </html>
+    """
 
     url = "https://api.resend.com/emails"
     headers = {
@@ -532,7 +555,7 @@ def run_comparison(trips, retries):
 def main():
     parser = argparse.ArgumentParser(description="Compare flight strategies.")
     parser.add_argument("--csv", default="trips.csv", help="Path to trips CSV file")
-    parser.add_argument("--retries", type=int, default=5, help="Number of retries for fetching")
+    parser.add_argument("--retries", type=int, default=10, help="Number of retries for fetching")
     parser.add_argument("--email", action="store_true", help="Send report via email")
     parser.add_argument("--sanity", action="store_true", help="Send a sanity check email and exit")
     parser.add_argument("--startup", action="store_true", help="Send sanity email, save ID, and run full search")

@@ -394,7 +394,7 @@ def main():
 
 def send_email(report_md, recipients=None):
     if recipients is None:
-        recipients = ["ph9214@gmail.com", "flightstrat@abad.cc"]
+        recipients = ["flightstrat@abad.cc"]
         
     smtp_host = os.environ.get("SMTP_HOST", "smtp")
     smtp_port = int(os.environ.get("SMTP_PORT", 25))
